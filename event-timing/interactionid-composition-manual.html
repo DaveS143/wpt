@@ -1,0 +1,122 @@
+<!doctype html>
+<html>
+<title>Event Timing: interactionId composition events.</title>
+<form>
+    <b> Select your Operating System from the list</b>
+    <select id="option" onchange="dropdownMenu()">
+        <option> ---Choose OS--- </option>
+        <option> Linux </option>
+        <option> Windows </option>
+    </select>
+    <p> Your selected OS is:
+        <input type="text" id="os" size="20">
+    </p>
+</form>
+<pre>
+    Steps:
+    1) Open <b id = "IMEtype"></b> IME and select Hiragana input method.
+    2) Click at the above textbox and then type 'a' using keyboard.
+    3) Press the '{Enter}' key to complete the IME composition.
+    4) <a href="interactionid-composition-manual.html">Click here</a> to test again if not following the steps exactly.
+</pre>
+<textarea id='test'></textarea>
+<script src="/resources/testharness.js"></script>
+<script src="/resources/testharnessreport.js"></script>
+<script src=resources/event-timing-test-utils.js></script>
+<script>
+    setup({ explicit_timeout: true, explicit_done: true });
+
+    function dropdownMenu() {
+        var list = document.getElementById("option");
+        document.getElementById("os").value = list.options[list.selectedIndex].text;
+        if (document.getElementById("os").value == "Linux") {
+            document.getElementById("IMEtype").textContent = "Japanese - Mozc";
+        }
+        else if (document.getElementById("os").value == "Windows") {
+            document.getElementById("IMEtype").textContent = "Japanese Microsoft";
+        }
+    }
+
+    let observedEntries = [];
+    let map = new Map();
+    const events = ['compositionstart', 'compositionupdate', 'compositionend', 'keydown', 'input', 'keyup'];
+
+    function eventsForCheck(entry) {
+        if (entry.name === 'compositionupdate' || entry.name === 'keydown' || entry.name === 'input' || entry.name === 'keyup'
+            || entry.name === 'compositionstart' || entry.name === 'compositionend') {
+            if (map.has(entry.name)) {
+                map.get(entry.name).push(entry.interactionId);
+                return true;
+            }
+            else {
+                map.set(entry.name, [entry.interactionId]);
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    function testAssertionsLinux() {
+        if (observedEntries.length < 9)
+            return;
+
+        assert_greater_than(map.get('keydown')[0], 0, 'First keydown should have an interactionId greater than 0');
+        assert_equals(map.get('compositionstart')[0], 0, 'Compositionstart should not have an interactionId');
+        assert_equals(map.get('compositionupdate')[0], 0, 'Compositionupdate should not have an interactionId');
+        assert_equals(map.get('input')[0], map.get('keydown')[0], 'First input should have an interactionId equal to keydown');
+        assert_equals(map.get('keyup')[0], map.get('keydown')[0], 'First keyup should have an interactionId equal to keydown');
+
+        assert_greater_than(map.get('keydown')[1], 0, 'Second keydown should have an interactionId greater than 0');
+        assert_equals(map.get('compositionupdate')[1], 0, 'Compositionupdate should not have an interactionId');
+        assert_equals(map.get('input')[1], map.get('keydown')[1], 'Second input should have an interactionId equal to second keydown');
+        assert_equals(map.get('compositionend')[0], 0, 'Compositionend should not have an interactionId');
+        assert_not_equals(map.get('keydown')[0], map.get('keydown')[1], 'First and second keydowns should have the same interactionId')
+        done();
+    }
+
+    function testAssertionsWindows() {
+        if (observedEntries.length < 14)
+            return;
+
+        assert_equals(map.get('keyup')[0], 0, 'Kana Mode keyup should not have any interactionId');
+        assert_greater_than(map.get('keydown')[0], 0, 'First keydown should have an interactionId greater than 0');
+        assert_equals(map.get('compositionstart')[0], 0, 'Compositionstart should not have an interactionId');
+        assert_equals(map.get('compositionupdate')[0], 0, 'Compositionupdate should not have an interactionId');
+        assert_equals(map.get('input')[0], map.get('keydown')[0], 'First input should have an interactionId equal to keydown');
+        assert_equals(map.get('keyup')[1], map.get('keydown')[0], 'Second keyup should have an interactionId equal to keydown');
+        assert_equals(map.get('keyup')[2], map.get('keydown')[0], 'Third keyup should have an interactionId equal to keydown');
+        assert_equals(map.get('keyup')[3], map.get('keydown')[0], 'Fourth keyup should have an interactionId equal to keydown');
+        assert_equals(map.get('keyup')[4], map.get('keydown')[0], 'Fifth keyup should have an interactionId equal to keydown');
+
+        assert_greater_than(map.get('keydown')[1], 0, 'Second keydown should have an interactionId greater than 0');
+        assert_equals(map.get('compositionupdate')[1], 0, 'Compositionupdate should not have an interactionId');
+        assert_equals(map.get('input')[1], map.get('keydown')[1], 'Second input should have an interactionId equal to second keydown');
+        assert_equals(map.get('compositionend')[0], 0, 'Compositionend should not have an interactionId');
+        assert_equals(map.get('keyup')[5], map.get('keydown')[1], 'Sixth keyup should have an interactionId equal to second keydown');
+        assert_not_equals(map.get('keydown')[0], map.get('keydown')[1], 'First and second keydowns should have the same interactionId')
+        done();
+    }
+
+    test(function () {
+        assert_implements(window.PerformanceEventTiming, 'Event Timing is not supported.');
+        new PerformanceObserver(entryList => {
+            observedEntries = observedEntries.concat(entryList.getEntries().filter(eventsForCheck));
+
+            if (document.getElementById("os").value == "Linux") {
+                testAssertionsLinux();
+            }
+            else if (document.getElementById("os").value == "Windows") {
+                testAssertionsWindows();
+            }
+
+        }).observe({ type: "event" });
+
+        addListeners(document.getElementById('test'), events);
+    });
+
+</script>
+
+
+
+</html>
