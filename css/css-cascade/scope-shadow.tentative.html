@@ -5,6 +5,11 @@
 <script src="/resources/testharness.js"></script>
 <script src="/resources/testharnessreport.js"></script>
 <script src="/resources/declarative-shadow-dom-polyfill.js"></script>
+<script>
+  setup(() => {
+    polyfill_declarative_shadow_dom(document);
+  });
+</script>
 
 <div id=host_plain>
   <template shadowrootmode=open>
@@ -20,10 +25,6 @@
   </template>
 </div>
 <script>
-  setup(() => {
-    polyfill_declarative_shadow_dom(document);
-  });
-
   test(() => {
     let a = host_plain.shadowRoot.querySelector('.a');
     assert_equals(getComputedStyle(a).zIndex, '1');
@@ -50,10 +51,6 @@
   </template>
 </div>
 <script>
-  setup(() => {
-    polyfill_declarative_shadow_dom(document);
-  });
-
   test(() => {
     let a = host_functional.shadowRoot.querySelector('.a');
     assert_equals(getComputedStyle(a).zIndex, '1');
@@ -74,10 +71,6 @@
   </template>
 </div>
 <script>
-  setup(() => {
-    polyfill_declarative_shadow_dom(document);
-  });
-
   test(() => {
     assert_equals(getComputedStyle(host_scope_subject).zIndex, '1');
   }, ':scope matches host via the scoping root');
@@ -106,10 +99,6 @@
   </div>
 </div>
 <script>
-  setup(() => {
-    polyfill_declarative_shadow_dom(document);
-  });
-
   test(() => {
     let host = host_scope_subject_is.querySelector('.host');
     assert_equals(getComputedStyle(host).zIndex, '1');
@@ -119,4 +108,62 @@
     let a_outside = host_scope_subject_is.querySelector('.a');
     assert_equals(getComputedStyle(a_outside).zIndex, 'auto');
   }, ':scope within :is() matches host via the scoping root');
+</script>
+
+<!-- Tentative. https://github.com/w3c/csswg-drafts/issues/9178 -->
+<div id=implicit_scope_shadow_parent>
+  <div class=host>
+    <template shadowrootmode=open>
+      <style>
+          @scope {
+            /* Matches host */
+            :scope {
+              z-index: 1;
+            }
+            :scope > .a {
+              z-index: 2;
+            }
+          }
+      </style>
+      <div class=a>
+      </div>
+    </template>
+  </div>
+</div>
+<script>
+  test(() => {
+    let host = implicit_scope_shadow_parent.querySelector('.host');
+    let a = host.shadowRoot.querySelector('.a');
+    assert_equals(getComputedStyle(host).zIndex, '1');
+    assert_equals(getComputedStyle(a).zIndex, '2');
+  }, 'Implicit @scope as direct child of shadow root');
+</script>
+
+<!-- Tentative. https://github.com/w3c/csswg-drafts/issues/9178 -->
+<div id=implicit_scope_constructed>
+  <div class=host>
+    <template shadowrootmode=open>
+      <div class=a>
+      </div>
+    </template>
+  </div>
+</div>
+<script>
+  test(() => {
+    let host = implicit_scope_constructed.querySelector('.host');
+    let sheet = new CSSStyleSheet();
+    sheet.replaceSync(`
+      @scope {
+        :scope {
+          z-index: 1;
+        }
+        :scope .a {
+          z-index: 2;
+        }
+    `);
+    host.shadowRoot.adoptedStyleSheets = [sheet];
+    let a = host.shadowRoot.querySelector('.a');
+    assert_equals(getComputedStyle(host).zIndex, '1');
+    assert_equals(getComputedStyle(a).zIndex, '2');
+  }, 'Implicit @scope in construted stylesheet');
 </script>
